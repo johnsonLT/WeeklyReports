@@ -86,5 +86,38 @@
   </widget>
  </widget>
  <resources/>
- <connections/>
+ <connections>
+  <connection>
+   <sender>btn_select</sender>
+   <signal>clicked()</signal>
+   <receiver>line_path</receiver>
+   <slot>show()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>778</x>
+     <y>42</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>577</x>
+     <y>41</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>btn_generate</sender>
+   <signal>clicked()</signal>
+   <receiver>listWidget_filelist</receiver>
+   <slot>showNormal()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>865</x>
+     <y>47</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>488</x>
+     <y>199</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
 </ui>
