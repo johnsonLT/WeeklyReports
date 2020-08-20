@@ -21,7 +21,7 @@ class AgentUI(QMainWindow):
 
 
 if __name__ == '__main__':
-    app = QApplication(sys.argv)  # 应用程序
+    app = QApplication(sys.argv)
     main = AgentUI()
     main.show()
     sys.exit(app.exec())
