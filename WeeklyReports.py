@@ -22,6 +22,7 @@ class Ui_MainWindow(object):
         self.horizontalLayout_2 = QtWidgets.QHBoxLayout()
         self.horizontalLayout_2.setObjectName("horizontalLayout_2")
         self.line_path = QtWidgets.QLineEdit(self.centralwidget)
+        self.line_path.setPlaceholderText("选择周报路径")
         self.line_path.setObjectName("line_path")
         self.horizontalLayout_2.addWidget(self.line_path)
         self.btn_select = QtWidgets.QPushButton(self.centralwidget)
