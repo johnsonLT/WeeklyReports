@@ -63,8 +63,8 @@ class Ui_MainWindow(object):
         MainWindow.setMenuBar(self.menubar)
 
         self.retranslateUi(MainWindow)
-        self.btn_select.clicked.connect(self.line_path.show)
-        self.btn_generate.clicked.connect(self.listWidget_filelist.showNormal)
+        #self.btn_select.clicked.connect(self.line_path.show)
+        #self.btn_generate.clicked.connect(self.listWidget_filelist.showNormal)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
 
     def retranslateUi(self, MainWindow):
