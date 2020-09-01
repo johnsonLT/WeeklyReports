@@ -75,14 +75,22 @@ class AgentUI(QMainWindow, WeeklyReports.Ui_MainWindow):
         wb = openpyxl.load_workbook(src_file)
         wb2 = openpyxl.load_workbook(tag_file)
 
-        ws = wb.get_sheet_by_name(wb.get_sheet_names()[0])
+        ws = wb[sheet_name]
+        ws2 = wb[sheet_name]
 
-        ws2 = wb2.create_sheet(sheet_name.decode('utf-8'))
-
-        max_row = ws.max_row  # 最大行数
+        for i, row in enumerate(ws.iter_rows()):
+            print(ws.iter_rows())
+            for j, cell in enumerate(row):
+                print(row)
+                print(cell.value)
+                ws2.cell(row=i+1, column=j+1, value=cell.value)
+        wb2.save(tag_file)
+'''
+max_row = ws.max_row  # 最大行数
         max_column = ws.max_column  # 最大列数
 
-        wm = zip(ws.merged_cells)  # 开始处理合并单元格
+        wm = len(zip(ws.merged_cells))  # 开始处理合并单元格
+        print(wm)
         if len(wm) > 0:
             for i in range(0, len(wm)):
                 cell2 = str(wm[i]).replace('(<MergeCell ', '').replace('>,)', '')
@@ -123,6 +131,8 @@ class AgentUI(QMainWindow, WeeklyReports.Ui_MainWindow):
 
         wb2.close()
         wb.close()
+'''
+
 
 if __name__ == '__main__':
    app = QApplication(sys.argv)
