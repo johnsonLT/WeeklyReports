@@ -22,7 +22,6 @@ class Ui_MainWindow(object):
         self.horizontalLayout_2 = QtWidgets.QHBoxLayout()
         self.horizontalLayout_2.setObjectName("horizontalLayout_2")
         self.line_path = QtWidgets.QLineEdit(self.centralwidget)
-        self.line_path.setPlaceholderText("选择周报路径")
         self.line_path.setObjectName("line_path")
         self.horizontalLayout_2.addWidget(self.line_path)
         self.btn_select = QtWidgets.QPushButton(self.centralwidget)
@@ -44,11 +43,10 @@ class Ui_MainWindow(object):
         self.calendarWidget.setMaximumSize(QtCore.QSize(388, 16777215))
         self.calendarWidget.setObjectName("calendarWidget")
         self.verticalLayout.addWidget(self.calendarWidget)
-        self.tableView = QtWidgets.QTableView(self.centralwidget)
-        self.tableView.setObjectName("tableView")
-        self.verticalLayout.addWidget(self.tableView)
+        self.listWidget_info = QtWidgets.QListWidget(self.centralwidget)
+        self.listWidget_info.setObjectName("listWidget_info")
+        self.verticalLayout.addWidget(self.listWidget_info)
         self.verticalLayout.setStretch(0, 2)
-        self.verticalLayout.setStretch(1, 4)
         self.horizontalLayout_3.addLayout(self.verticalLayout)
         self.horizontalLayout_3.setStretch(0, 5)
         self.horizontalLayout_3.setStretch(1, 2)
@@ -64,8 +62,8 @@ class Ui_MainWindow(object):
         MainWindow.setMenuBar(self.menubar)
 
         self.retranslateUi(MainWindow)
-        #self.btn_select.clicked.connect(self.line_path.show)
-        #self.btn_generate.clicked.connect(self.listWidget_filelist.showNormal)
+        self.btn_select.clicked.connect(self.line_path.show)
+        self.btn_generate.clicked.connect(self.listWidget_filelist.showNormal)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
 
     def retranslateUi(self, MainWindow):
