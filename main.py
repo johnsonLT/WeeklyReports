@@ -94,8 +94,6 @@ class AgentUI(QMainWindow, WeeklyReports.Ui_MainWindow):
         mergedCellsList = wsSrc.merged_cells.ranges
         maxLen = len(mergedCellsList)
 
-
-
         if len(mergedCellsList) > 0:
             for i in range(0, maxLen):
                 print("mergedCellsList length: %d" % len(mergedCellsList))
