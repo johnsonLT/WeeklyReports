@@ -93,10 +93,10 @@ class AgentUI(QMainWindow, WeeklyReports.Ui_MainWindow):
         print(wsSrc.merged_cells.ranges) #获取所有合并单元格
         mergedCellsList = wsSrc.merged_cells.ranges
         maxLen = len(mergedCellsList)
-        wsTag.page_setup.orientation = wsTag.ORIENTATION_LANDSCAPE
-        wsTag.page_setup.paperSize = wsTag.PAPERSIZE_TABLOID
-        wsTag.page_setup.fitToHeight = 1
-        wsTag.page_setup.fitToWidth = 0
+        # wsTag.page_setup.orientation = wsTag.ORIENTATION_LANDSCAPE
+        # wsTag.page_setup.paperSize = wsTag.PAPERSIZE_TABLOID
+        # wsTag.page_setup.fitToHeight = 3
+        # wsTag.page_setup.fitToWidth = 0
         if len(mergedCellsList) > 0:
             for i in range(0, maxLen):
                 print("mergedCellsList length: %d" % len(mergedCellsList))
