@@ -9,11 +9,12 @@ import sys
 import os
 from copy import copy
 import pandas as pd
+import copy
 import openpyxl
 import WeeklyReports
 from PyQt5.QtWidgets import QApplication, QMainWindow, QFileDialog
 from PyQt5 import QtCore
-
+from openpyxl.styles import PatternFill, Border, Side, Alignment, Protection, Font, Color
 
 class AgentUI(QMainWindow, WeeklyReports.Ui_MainWindow):
     def __init__(self):
@@ -62,7 +63,7 @@ class AgentUI(QMainWindow, WeeklyReports.Ui_MainWindow):
        self.listWidget_info.addItems(self.memberName)
        self.listWidget_info.addItem("周报生成完成")
 
-           # self.personReportWork
+    # self.personReportWork
     # noinspection PyMethodMayBeStatic
     def getStrBetweenSymbol(self, txt, c_start, c_end):
         start = txt.find(c_start)
@@ -79,30 +80,52 @@ class AgentUI(QMainWindow, WeeklyReports.Ui_MainWindow):
         wbSrc = openpyxl.load_workbook(src_file)
         wbTag = openpyxl.load_workbook(tag_file)
 
-        wsSrc = wbSrc[sheet_name]
-        print(wsSrc.merged_cells.ranges) #获取所有合并单元格
+        if sheet_name in wbSrc.sheetnames:
+            wsSrc = wbSrc[sheet_name]
+        else:
+            wsSrc = wbSrc.active
+            wsSrc.title = sheet_name
+
         if sheet_name in wbTag.sheetnames:
             wsTag = wbTag[sheet_name]
         else:
             wsTag = wbTag.create_sheet(title=sheet_name)
+        print(wsSrc.merged_cells.ranges) #获取所有合并单元格
+        mergedCellsList = wsSrc.merged_cells.ranges
+        maxLen = len(mergedCellsList)
 
-        wm = list(zip(wsSrc.merged_cells))  # 开始处理合并单元格
-        print(wm)
-        if len(wm) > 0:
-            for i in range(0, len(wm)):
-                cell2 = str(wm[i])
-                print("MergeCell : %s" % cell2)
-                wsTag.merge_cells(cell2)
+        if len(mergedCellsList) > 0:
+            for i in range(0, maxLen):
+                print("mergedCellsList length: %d" % len(mergedCellsList))
+                mergeCells = mergedCellsList[0]
+                tagCell = str(mergedCellsList[0])
+                cellNum = tagCell.split(":")
+                wsSrc.unmerge_cells(tagCell)
+                cellValue = wsSrc[cellNum[0]]
+                try:
+                    wsTag.merge_cells(range_string=tagCell)
+                #wsTag.cell(mergeCells.min_col, mergeCells.min_row).value = cellValue
+                except TypeError as e:
+                    print(e)
+                print("tagCell : %s" % tagCell, "top cell: %s" % cellValue.value, "i : %d" % i)
 
-        for i, row in enumerate(wsSrc.iter_rows()):
-            print(wsSrc.iter_rows())
-            for j, cell in enumerate(row):
-                print(row)
-                print(cell.value)
-                wsTag.cell(row=i+1, column=j+1, value=cell.value)
 
-        wbTag.save(tag_file)
-
+        print('end of if')
+        wbTag.save(filename=tag_file)
+        #wm = list(zip(wsSrc.merged_cells))  # 开始处理合并单元格
+        # print(wm)
+        # if len(wm) > 0:
+        #     for i in range(0, len(wm)):
+        #         cell2 = str(wm[i])
+        #         print("MergeCell : %s" % cell2)
+        #         wsTag.merge_cells(cell2)
+        #
+        # for i, row in enumerate(wsSrc.iter_rows()):
+        #     print(wsSrc.iter_rows())
+        #     for j, cell in enumerate(row):
+        #         print(row)
+        #         print(cell.value)
+        #         wsTag.cell(row=i+1, column=j+1, value=cell.value)
 
 
 if __name__ == '__main__':
