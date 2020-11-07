@@ -78,8 +78,10 @@ class AgentUI(QMainWindow, WeeklyReports.Ui_MainWindow):
     def replace_xls(self, src_file, tag_file, sheet_name):
         print("Start sheet %s copy from %s to %s" % (sheet_name, src_file, tag_file))
         wbSrc = openpyxl.load_workbook(src_file)
-        wbTag = openpyxl.load_workbook(tag_file)
-
+        if os.path.exists(src_file):
+            wbTag = openpyxl.load_workbook(tag_file)
+        else:
+            wbTag = openpyxl.Workbook()
         if sheet_name in wbSrc.sheetnames:
             wsSrc = wbSrc[sheet_name]
         else:
@@ -90,42 +92,11 @@ class AgentUI(QMainWindow, WeeklyReports.Ui_MainWindow):
             wsTag = wbTag[sheet_name]
         else:
             wsTag = wbTag.create_sheet(title=sheet_name)
-        print(wsSrc.merged_cells.ranges) #获取所有合并单元格
-        mergedCellsList = wsSrc.merged_cells.ranges
-        maxLen = len(mergedCellsList)
-        # wsTag.page_setup.orientation = wsTag.ORIENTATION_LANDSCAPE
-        # wsTag.page_setup.paperSize = wsTag.PAPERSIZE_TABLOID
-        # wsTag.page_setup.fitToHeight = 3
-        # wsTag.page_setup.fitToWidth = 0
-        if len(mergedCellsList) > 0:
-            for i in range(0, maxLen):
-                print("mergedCellsList length: %d" % len(mergedCellsList))
-                mergeCells = mergedCellsList[0]
-                tagCell = str(mergedCellsList[0])
-                cellNum = tagCell.split(":")
-                wsSrc.unmerge_cells(tagCell)
-                cellValue = wsSrc[cellNum[0]].value
-                #设置sheet标签颜色
-                #wsTag.sheet_properties.tabColor = "1072BA"
-                try:
-                    wsTag.merge_cells(range_string=tagCell)
-                    wsTag.cell(row=mergeCells.min_row, column=mergeCells.min_col, value = cellValue)
-                    thin = Side(color="000000", border_style="thin")
-                    thick = Side(color="000000", border_style="thick")
-                    focus_cell = wsTag[cellNum[0]]
-                    focus_cell.border = Border(top=thin, left=thin, right=thin, bottom=thin)
-                    focus_cell.fill = PatternFill("solid", fgColor="8DB4E2")
-                    focus_cell.font = Font(name="宋体", color="000000")
-                    focus_cell.alignment = Alignment(horizontal="center", vertical="center",  wrap_text=True)
-                except (TypeError, ValueError) as e:
-                    print(e)
-                except:
-                    print("Unexpected error:", sys.exc_info()[0])
-                    raise
-                #print("tagCell : %s" % tagCell, "top cell: %s" % cellValue.value, "i : %d" % i)
+        #处理合并单元格
+        self.handleMergedCells(wsSrc, wsTag)
+        #处理单个单元格
+        self.handleSingleCell(wsSrc, wsTag)
 
-
-        print('end of if')
         wbTag.save(filename=tag_file)
         #wm = list(zip(wsSrc.merged_cells))  # 开始处理合并单元格
         # print(wm)
@@ -141,7 +112,60 @@ class AgentUI(QMainWindow, WeeklyReports.Ui_MainWindow):
         #         print(row)
         #         print(cell.value)
         #         wsTag.cell(row=i+1, column=j+1, value=cell.value)
+    #处理合并单元格
+    def handleMergedCells(self, wsSrc, wsTag):
+        print(wsSrc.merged_cells.ranges)  # 获取所有合并单元格
+        mergedCellsList = wsSrc.merged_cells.ranges
+        maxLen = len(mergedCellsList)
+        # wsTag.page_setup.orientation = wsTag.ORIENTATION_LANDSCAPE
+        # wsTag.page_setup.paperSize = wsTag.PAPERSIZE_TABLOID
+        # wsTag.page_setup.fitToHeight = 3
+        # wsTag.page_setup.fitToWidth = 0
+        if len(mergedCellsList) > 0:
+            for i in range(0, maxLen):
+                print("mergedCellsList length: %d" % len(mergedCellsList))
+                mergeCells = mergedCellsList[0]
+                tagCell = str(mergedCellsList[0])
+                cellNum = tagCell.split(":")
+                wsSrc.unmerge_cells(tagCell)
+                cellValue = wsSrc[cellNum[0]].value
+                # 设置sheet标签颜色
+                # wsTag.sheet_properties.tabColor = "1072BA"
+                try:
+                    wsTag.merge_cells(range_string=tagCell)
+                    #wsTag.cell(row=mergeCells.min_row, column=mergeCells.min_col, value=cellValue)
+                    #设置单元格样式
+                    thin = Side(color="000000", border_style="thin")
+                    thick = Side(color="000000", border_style="thick")
+                    focus_cell = wsTag[cellNum[0]]
+                    focus_cell.border = Border(top=thin, left=thin, right=thin, bottom=thin)
+                    focus_cell.fill = PatternFill("solid", fgColor="8DB4E2")
+                    focus_cell.font = Font(name="宋体", color="000000")
+                    focus_cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+                except (TypeError, ValueError) as e:
+                    print(e)
+                except:
+                    print("Unexpected error:", sys.exc_info()[0])
+                    raise
+                # print("tagCell : %s" % tagCell, "top cell: %s" % cellValue.value, "i : %d" % i)
+    #处理单个单元格
+    def handleSingleCell(self, wsSrc, wsTag):
+        print(wsSrc.rows)
 
+        for row in wsSrc.rows:
+            for cell in row:
+                cell_pos = cell.coordinate
+                if cell.value != None:
+                    wsTag[cell_pos] = cell.value
+                    #设置单元格样式
+                    thin = Side(color="000000", border_style="thin")
+                    focus_cell = wsTag[cell_pos]
+                    focus_cell.border = Border(top=thin, left=thin, right=thin, bottom=thin)
+                    focus_cell.fill = PatternFill("solid", fgColor="8DB4E2")
+                    focus_cell.font = Font(name="宋体", color="000000")
+                    focus_cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+
+        pass
 
 if __name__ == '__main__':
    app = QApplication(sys.argv)
