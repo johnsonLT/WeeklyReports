@@ -18,11 +18,17 @@ from PyQt5 import QtCore
 from openpyxl.styles import PatternFill, Border, Side, Alignment, Protection, Font, Color
 
 '''
+global list
+'''
+#成员名称
+memberList = []
+
+'''
 excel class, contain excel attribute and handle 
 '''
 class reportExcel():
-    def __init__(self):
-        print("#init reportExcel")
+    def __init__(self, excelID):
+        print("#init reportExcel:%d", excelID)
         pass
     # src_file是源xlsx文件，tag_file是目标xlsx文件，sheet_name是目标xlsx里的新sheet名称
     # noinspection PyMethodMayBeStatic
@@ -118,14 +124,16 @@ class copyExcel(threading.Thread):
         self.tag_file = tag_file
         self.sheet_name = sheet_name
     def run(self):
-        newExcelReport = reportExcel()
         threadLock.acquire()
+        newExcelReport = reportExcel(self.threadID)
+        print("ThreadID:%d, Thread Name:%s", self.threadID, self.name)
         newExcelReport.replace_xls(self.src_file, self.tag_file, self.sheet_name)
+        memberList.append(self.sheet_name)
         threadLock.release()
 
 
 '''
-ui handle thread, main thrad
+ui handle thread, main thread
 '''
 class AgentUI(QMainWindow, WeeklyReports.Ui_MainWindow):
     def __init__(self):
@@ -165,15 +173,16 @@ class AgentUI(QMainWindow, WeeklyReports.Ui_MainWindow):
        summaryWorkPath = self.directory + '/' + self.summaryReportPath
        print(summaryWorkPath)
        #self.summaryReportWork = openpyxl.load_workbook(summaryWorkPath)
-       self.memberName = []
+       threadID = 0
        for reportWork in self.personReportPathList:
            curReportPath = self.directory + '/' + reportWork
-           memberName = self.getStrBetweenSymbol(reportWork, '_', '.')
-           self.memberName.append(memberName)
-           print(self.memberName)
+           self.memberName = self.getStrBetweenSymbol(reportWork, '_', '.')
            #self.replace_xls(curReportPath, summaryWorkPath, memberName)
-           generateThread = copyExcel()
-           self.listWidget_info.addItem(memberName)
+           generateThread = copyExcel(threadID, "Thread-"+str(threadID), curReportPath, summaryWorkPath, self.memberName )
+           threadID += 1
+       if len(memberList) != 0:
+           self.listWidget_info.addItem(self.memberName)
+           memberList.remove(self.memberName )
        self.listWidget_info.addItem("周报生成完成")
 
     # self.personReportWork
