@@ -7,140 +7,35 @@
 
 import sys
 import os
-import threading
-from copy import copy
-import pandas as pd
 import openpyxl
+#获取行号列号
+from openpyxl.utils.cell import coordinate_from_string, column_index_from_string
 from openpyxl.styles import Border, Side, PatternFill, Font, GradientFill, Alignment
-import WeeklyReports
-from PyQt5.QtWidgets import QApplication, QMainWindow, QFileDialog
-from PyQt5 import QtCore
 from openpyxl.styles import PatternFill, Border, Side, Alignment, Protection, Font, Color
+import WeeklyReports
+from PyQt5.QtWidgets import QApplication, QMainWindow, QFileDialog, QCalendarWidget
+from PyQt5.QtGui import QIcon, QPixmap
+from PyQt5.Qt import QThread
+from PyQt5 import QtCore
+import ctypes
 
-'''
-global list
-'''
-#成员名称
-memberList = []
-
-'''
-excel class, contain excel attribute and handle 
-'''
-class reportExcel():
-    def __init__(self, excelID):
-        print("#init reportExcel:%d", excelID)
-        pass
-    # src_file是源xlsx文件，tag_file是目标xlsx文件，sheet_name是目标xlsx里的新sheet名称
-    # noinspection PyMethodMayBeStatic
-    def replace_xls(self, src_file, tag_file, sheet_name):
-        print("Start sheet %s copy from %s to %s" % (sheet_name, src_file, tag_file))
-        wbSrc = openpyxl.load_workbook(src_file)
-        if os.path.exists(src_file):
-            wbTag = openpyxl.load_workbook(tag_file)
-        else:
-            wbTag = openpyxl.Workbook()
-        if sheet_name in wbSrc.sheetnames:
-            wsSrc = wbSrc[sheet_name]
-        else:
-            wsSrc = wbSrc.active
-            wsSrc.title = sheet_name
-
-        if sheet_name in wbTag.sheetnames:
-            wsTag = wbTag[sheet_name]
-        else:
-            wsTag = wbTag.create_sheet(title=sheet_name)
-        #处理合并单元格
-        self.handleMergedCells(wsSrc, wsTag)
-        #处理单个单元格
-        self.handleSingleCell(wsSrc, wsTag)
-        wbTag.save(filename=tag_file)
-
-    #处理合并单元格
-    def handleMergedCells(self, wsSrc, wsTag):
-        print(wsSrc.merged_cells.ranges)  # 获取所有合并单元格
-        mergedCellsList = wsSrc.merged_cells.ranges
-        maxLen = len(mergedCellsList)
-        # wsTag.page_setup.orientation = wsTag.ORIENTATION_LANDSCAPE
-        # wsTag.page_setup.paperSize = wsTag.PAPERSIZE_TABLOID
-        # wsTag.page_setup.fitToHeight = 3
-        # wsTag.page_setup.fitToWidth = 0
-        if len(mergedCellsList) > 0:
-            for i in range(0, maxLen):
-                print("mergedCellsList length: %d" % len(mergedCellsList))
-                mergeCells = mergedCellsList[0]
-                tagCell = str(mergedCellsList[0])
-                cellNum = tagCell.split(":")
-                wsSrc.unmerge_cells(tagCell)
-                cellValue = wsSrc[cellNum[0]].value
-                # 设置sheet标签颜色
-                # wsTag.sheet_properties.tabColor = "1072BA"
-                try:
-                    wsTag.merge_cells(range_string=tagCell)
-                    #wsTag.cell(row=mergeCells.min_row, column=mergeCells.min_col, value=cellValue)
-                    #设置单元格样式
-                    thin = Side(color="000000", border_style="thin")
-                    thick = Side(color="000000", border_style="thick")
-                    focus_cell = wsTag[cellNum[0]]
-                    focus_cell.border = Border(top=thin, left=thin, right=thin, bottom=thin)
-                    focus_cell.fill = PatternFill("solid", fgColor="8DB4E2")
-                    focus_cell.font = Font(name="宋体", color="000000")
-                    focus_cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
-                except (TypeError, ValueError) as e:
-                    print(e)
-                except:
-                    print("Unexpected error:", sys.exc_info()[0])
-                    raise
-                # print("tagCell : %s" % tagCell, "top cell: %s" % cellValue.value, "i : %d" % i)
-    #处理单个单元格
-    def handleSingleCell(self, wsSrc, wsTag):
-        print(wsSrc.rows)
-
-        for row in wsSrc.rows:
-            for cell in row:
-                cell_pos = cell.coordinate
-                if cell.value != None:
-                    wsTag[cell_pos] = cell.value
-                    #设置单元格样式
-                    thin = Side(color="000000", border_style="thin")
-                    focus_cell = wsTag[cell_pos]
-                    focus_cell.border = Border(top=thin, left=thin, right=thin, bottom=thin)
-                    focus_cell.fill = PatternFill("solid", fgColor="8DB4E2")
-                    focus_cell.font = Font(name="宋体", color="000000")
-                    focus_cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
-
-        pass
-
-'''
-copy excel thread
-'''
-threadLock = threading.Lock()
-class copyExcel(threading.Thread):
-
-    def __init__(self, threadID, name, src_file, tag_file, sheet_name):
-        threading.Thread.__init__(self)
-        self.threadID = threadID
-        self.name = name
-        self.src_file = src_file
-        self.tag_file = tag_file
-        self.sheet_name = sheet_name
-    def run(self):
-        threadLock.acquire()
-        newExcelReport = reportExcel(self.threadID)
-        print("ThreadID:%d, Thread Name:%s", self.threadID, self.name)
-        newExcelReport.replace_xls(self.src_file, self.tag_file, self.sheet_name)
-        memberList.append(self.sheet_name)
-        threadLock.release()
-
-
-'''
-ui handle thread, main thread
-'''
 class AgentUI(QMainWindow, WeeklyReports.Ui_MainWindow):
     def __init__(self):
         super(AgentUI, self).__init__()
+        #全局有效的类变量在__init__中声明
+        self.curDate : str
         self.initUI()
     def initUI(self):
         self.setupUi(self)  # 向主窗口添加控件
+        #设置窗口图标
+        icon =QIcon()
+        icon.addPixmap(QPixmap('周报面.png'))
+        self.setWindowIcon(icon)
+        #下面的函数不管参数是什么，任务栏图标都和窗口图标一致，但如果没有下面的函数，任务栏图标就不显示
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID()
+        #获取当前日期,注意‘月’是大写M
+        self.curDate = self.calendarWidget.selectedDate().toString("yyyy年MM月")
+        #信号槽连接
         self.btn_select.clicked.connect(self.on_linePathShow)
         self.btn_select.clicked.connect(self.on_filesList)
         self.btn_generate.clicked.connect(self.on_generateReports)
@@ -158,35 +53,36 @@ class AgentUI(QMainWindow, WeeklyReports.Ui_MainWindow):
     def on_filesList(self):
         self.filesList = os.listdir(self.directory)
         self.listWidget_filelist.clear()
-        self.listWidget_filelist.addItems(self.filesList)
         self.personReportPathList = []
         for report in self.filesList:
-            if report.find('_') == -1 :
+            if report[0] == '.':
+                continue
+            elif report.find('_') == -1 :
                 self.summaryReportPath = report
                 print(self.summaryReportPath)
             else:
                 self.personReportPathList.append(report)
+        self.listWidget_filelist.addItems(self.personReportPathList)
     '''
     slot function, connect to the btn_generate clicked signal.  
     '''
     def on_generateReports(self):
        summaryWorkPath = self.directory + '/' + self.summaryReportPath
        print(summaryWorkPath)
-       #self.summaryReportWork = openpyxl.load_workbook(summaryWorkPath)
-       threadID = 0
+       self.summaryReportWork = openpyxl.load_workbook(summaryWorkPath)
+       self.memberName = []
        for reportWork in self.personReportPathList:
            curReportPath = self.directory + '/' + reportWork
-           self.memberName = self.getStrBetweenSymbol(reportWork, '_', '.')
-           #self.replace_xls(curReportPath, summaryWorkPath, memberName)
-           generateThread = copyExcel(threadID, "Thread-"+str(threadID), curReportPath, summaryWorkPath, self.memberName )
-           threadID += 1
-       if len(memberList) != 0:
-           self.listWidget_info.addItem(self.memberName)
-           memberList.remove(self.memberName )
+           memberName = self.getStrBetweenSymbol(reportWork, '_', '.')
+           self.listWidget_info.addItem(memberName)
+           self.memberName.append(memberName)
+           print(self.memberName)
+           self.replace_xls(curReportPath, summaryWorkPath, memberName)
        self.listWidget_info.addItem("周报生成完成")
-
-    # self.personReportWork
-    # noinspection PyMethodMayBeStatic
+    '''
+    self.personReportWork
+    noinspection PyMethodMayBeStatic
+    '''
     def getStrBetweenSymbol(self, txt, c_start, c_end):
         start = txt.find(c_start)
         if start >= 0:
@@ -194,8 +90,128 @@ class AgentUI(QMainWindow, WeeklyReports.Ui_MainWindow):
             end = txt.find(c_end, start)
             if end >= 0:
                 return txt[start:end].strip()
+    '''
+    src_file是源xlsx文件，tag_file是目标xlsx文件，sheet_name是目标xlsx里的新sheet名称
+    noinspection PyMethodMayBeStatic
+    '''
+    def replace_xls(self, src_file, tag_file, sheet_name):
+        print("Start sheet %s copy from %s to %s" % (sheet_name, src_file, tag_file))
+        wbSrc = openpyxl.load_workbook(src_file)
+        if os.path.exists(src_file):
+            wbTag = openpyxl.load_workbook(tag_file)
+        else:
+            wbTag = openpyxl.Workbook()
+        if sheet_name in wbSrc.sheetnames:
+            wsSrc = wbSrc[sheet_name]
+        else:
+            wsSrc = wbSrc.active
+            wsSrc.title = sheet_name
 
+        if sheet_name in wbTag.sheetnames:
+            wsTag = wbTag[sheet_name]
+        else:
+            wsTag = wbTag.create_sheet(title=sheet_name)
+        #处理单个单元格
+        self.handleSingleCell(wsSrc, wsTag)
+        #处理合并单元格
+        self.handleMergedCells(wsSrc, wsTag)
+        wsTag.freeze_panes = 'G4'
+        wbTag.save(filename=tag_file)
 
+    '''
+    处理合并单元格
+    '''
+    def handleMergedCells(self, wsSrc, wsTag):
+        #print(wsSrc.merged_cells.ranges)  # 获取所有合并单元格
+        mergedCellsList = wsSrc.merged_cells.ranges
+        maxLen = len(mergedCellsList)
+        # wsTag.page_setup.orientation = wsTag.ORIENTATION_LANDSCAPE
+        # wsTag.page_setup.paperSize = wsTag.PAPERSIZE_TABLOID
+        # wsTag.page_setup.fitToHeight = 3
+        # wsTag.page_setup.fitToWidth = 0
+        #单元格样式
+        thin = Side(color="000000", border_style="thin")
+        medium = Side(color="000000", border_style="medium")
+        thick = Side(color="000000", border_style="thick")
+        if len(mergedCellsList) > 0:
+            for i in range(0, maxLen):
+                #print("mergedCellsList length: %d" % len(mergedCellsList))
+                mergeCells = mergedCellsList[0]
+                tagCell = str(mergedCellsList[0])
+                cellNum = tagCell.split(":")
+                wsSrc.unmerge_cells(tagCell)
+                #取行列号
+                cell_start_xy = coordinate_from_string(cellNum[0])
+                col_num = column_index_from_string(cell_start_xy[0])
+                row_start_num = cell_start_xy[1]
+                cell_end_xy = coordinate_from_string(cellNum[1])
+                row_end_num = cell_end_xy[1]
+
+                try:
+                    wsTag.merge_cells(range_string=tagCell)
+                    #设置单元格样式
+                    #合并单元格的样式和第一个单元格一致
+                    focus_cell = wsTag[cellNum[0]]
+                    focus_cell.border = Border(top=medium, left=medium, right=medium, bottom=medium)
+                    focus_cell.font = Font(name="宋体", color="000000")
+                    focus_cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+                    if (row_start_num == 1) or (row_start_num == 2):
+                        focus_cell.fill = PatternFill("solid", fgColor="C5D9F1") #蓝色
+                    else:
+                        focus_cell.fill = PatternFill("solid", fgColor="8DB4E2") #深蓝色
+                except (TypeError, ValueError) as e:
+                    print(e)
+                except:
+                    print("Unexpected error:", sys.exc_info()[0])
+                    raise
+        #处理表头的日期
+        wsTag['B1'] = self.curDate
+
+    '''
+    处理单个单元格
+    '''
+    def handleSingleCell(self, wsSrc, wsTag):
+        print(wsSrc.rows)
+        title_row_num = 3
+        thin = Side(color="000000", border_style="thin")
+        medium = Side(color="000000", border_style="medium")
+        for row in wsSrc.rows:
+            for cell in row:
+                cell_pos = cell.coordinate
+                cell_xy = coordinate_from_string(cell_pos)
+                col_num = column_index_from_string(cell_xy[0])
+                row_num = cell_xy[1]
+
+                focus_cell = wsTag[cell_pos]
+                # 设置单元格样式
+                bottom_border_style = Side(color="000000", border_style=cell.border.bottom.border_style)
+                left_border_style = Side(color="000000", border_style=cell.border.left.border_style)
+                right_border_style = Side(color="000000", border_style=cell.border.right.border_style)
+                top_border_style = Side(color="000000", border_style=cell.border.top.border_style)
+                focus_cell.border = Border(top=top_border_style, left=left_border_style, right=right_border_style,
+                                           bottom=bottom_border_style)
+                if cell.value != None:
+                    wsTag[cell_pos] = cell.value
+                    if cell.value == '周编号':
+                        wsTag.merge_cells(range_string = 'A1:A2')
+                        focus_cell.fill = PatternFill("solid", fgColor="C5D9F1")  # 蓝色
+
+                    focus_cell.font = Font(name="宋体", color="000000")
+                    focus_cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+                    if (row_num == 3) and (cell_pos != 'A3'):
+                        focus_cell.fill = PatternFill("solid", fgColor="92D050")  # 绿色
+                    elif (row_num > 3) and (col_num > 6):
+                        #处理工作内容的边界和颜色
+                        focus_cell.fill = PatternFill("solid", fgColor="8DB4E2")  # 深蓝色
+                    if (row_num > 3) and (col_num == 4):
+                        wsTag[cell_pos].number_format = 'yyyy/mm/dd'
+                        wsTag.column_dimensions['D'].width = 12   #这里列号只能写字母，不能写数字
+                    if (row_num > 3) and (col_num == 6):
+                        wsTag[cell_pos].number_format = '0%'
+                else:
+                    if (row_num == 3) and (cell_pos != 'A3'):
+                        focus_cell.fill = PatternFill("solid", fgColor="92D050")  # 绿色
+                        #focus_cell.border = Border(top=thin, left=thin, right=thin, bottom=thin)
 
 
 if __name__ == '__main__':
