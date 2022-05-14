@@ -8,15 +8,13 @@
 import sys
 import os
 import openpyxl
-#获取行号列号
 from openpyxl.utils.cell import coordinate_from_string, column_index_from_string
-from openpyxl.styles import Border, Side, PatternFill, Font, GradientFill, Alignment
-from openpyxl.styles import PatternFill, Border, Side, Alignment, Protection, Font, Color
+from openpyxl.styles import PatternFill, Border, Side, Alignment, Font
 import WeeklyReports
 from PyQt5.QtWidgets import QApplication, QMainWindow, QFileDialog, QCalendarWidget
 from PyQt5.QtGui import QIcon, QPixmap
+from pypinyin import pinyin, Style
 from PyQt5.Qt import QThread
-from PyQt5 import QtCore
 import ctypes
 
 class AgentUI(QMainWindow, WeeklyReports.Ui_MainWindow):
@@ -32,7 +30,7 @@ class AgentUI(QMainWindow, WeeklyReports.Ui_MainWindow):
         icon.addPixmap(QPixmap('周报面.png'))
         self.setWindowIcon(icon)
         #下面的函数不管参数是什么，任务栏图标都和窗口图标一致，但如果没有下面的函数，任务栏图标就不显示
-        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID()
+        #ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID()
         #获取当前日期,注意‘月’是大写M
         self.curDate = self.calendarWidget.selectedDate().toString("yyyy年MM月")
         #信号槽连接
@@ -57,7 +55,7 @@ class AgentUI(QMainWindow, WeeklyReports.Ui_MainWindow):
         for report in self.filesList:
             if report[0] == '.':
                 continue
-            elif report.find('_') == -1 :
+            elif report.rfind('_') == -1 :
                 self.summaryReportPath = report
                 print(self.summaryReportPath)
             else:
@@ -69,27 +67,47 @@ class AgentUI(QMainWindow, WeeklyReports.Ui_MainWindow):
     def on_generateReports(self):
        summaryWorkPath = self.directory + '/' + self.summaryReportPath
        print(summaryWorkPath)
-       self.summaryReportWork = openpyxl.load_workbook(summaryWorkPath)
+       #self.summaryReportWork = openpyxl.load_workbook(summaryWorkPath)
        self.memberName = []
        for reportWork in self.personReportPathList:
-           curReportPath = self.directory + '/' + reportWork
            memberName = self.getStrBetweenSymbol(reportWork, '_', '.')
-           self.listWidget_info.addItem(memberName)
            self.memberName.append(memberName)
-           print(self.memberName)
-           self.replace_xls(curReportPath, summaryWorkPath, memberName)
+       #按拼音排序
+       self.memberName.sort(key=lambda keys:[pinyin(i, style=Style.TONE3) for i in keys])
+       #删除sheet页
+
+       #按人名顺序添加sheet页
+       for one in self.memberName:
+           for reportWork in self.personReportPathList:
+               if reportWork.find(one) == -1:
+                   continue
+               curReportPath = self.directory + '/' + reportWork
+               one = self.getStrBetweenSymbol(reportWork, '_', '.')
+               self.listWidget_info.addItem(one)
+               self.personReportPathList.remove(reportWork)
+               self.del_sheet_by_name(summaryWorkPath, one)
+               self.replace_xls(curReportPath, summaryWorkPath, one)
+               break
        self.listWidget_info.addItem("周报生成完成")
-    '''
-    self.personReportWork
-    noinspection PyMethodMayBeStatic
-    '''
+
+    def del_sheet_by_name(self, tag_file, sheet_name):
+        if os.path.exists(tag_file):
+            wb = openpyxl.load_workbook(tag_file)
+            for name in wb.sheetnames:
+                if name.find(sheet_name) == 1:
+                    wb.remove(wb[sheet_name])
+                    break
+            wb.save(filename=tag_file)
+        else:
+            print("#no target file")
     def getStrBetweenSymbol(self, txt, c_start, c_end):
-        start = txt.find(c_start)
+        start = txt.rfind(c_start)
         if start >= 0:
             start += len(c_start)
             end = txt.find(c_end, start)
             if end >= 0:
                 return txt[start:end].strip()
+        self.listWidget_info.addItem("日志文件名称错误，姓名前没有下划线")
     '''
     src_file是源xlsx文件，tag_file是目标xlsx文件，sheet_name是目标xlsx里的新sheet名称
     noinspection PyMethodMayBeStatic
@@ -100,6 +118,7 @@ class AgentUI(QMainWindow, WeeklyReports.Ui_MainWindow):
         if os.path.exists(src_file):
             wbTag = openpyxl.load_workbook(tag_file)
         else:
+            #创建新表
             wbTag = openpyxl.Workbook()
         if sheet_name in wbSrc.sheetnames:
             wsSrc = wbSrc[sheet_name]
