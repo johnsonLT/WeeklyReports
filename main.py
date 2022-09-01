@@ -8,88 +8,71 @@
 import sys
 import os
 import openpyxl
+import ctypes
+#获取行号列号
 from openpyxl.utils.cell import coordinate_from_string, column_index_from_string
-from openpyxl.styles import PatternFill, Border, Side, Alignment, Font
-import WeeklyReports
+from openpyxl.styles import Border, Side, PatternFill, Font, GradientFill, Alignment
+from openpyxl.styles import PatternFill, Border, Side, Alignment, Protection, Font, Color
+#导入QT类
 from PyQt5.QtWidgets import QApplication, QMainWindow, QFileDialog, QCalendarWidget
 from PyQt5.QtGui import QIcon, QPixmap
+#from PyQt5.Qt import QThread, QMutex
+from PyQt5.QtCore import pyqtSignal, QObject, QThread
+#from PyQt5.QtCore import *
+#导入UI界面
+import WeeklyReports
 from pypinyin import pinyin, Style
-from PyQt5.Qt import QThread
-import ctypes
 
-class AgentUI(QMainWindow, WeeklyReports.Ui_MainWindow):
-    def __init__(self):
-        super(AgentUI, self).__init__()
-        #全局有效的类变量在__init__中声明
-        self.curDate : str
-        self.initUI()
-    def initUI(self):
-        self.setupUi(self)  # 向主窗口添加控件
-        #设置窗口图标
-        icon =QIcon()
-        icon.addPixmap(QPixmap('周报面.png'))
-        self.setWindowIcon(icon)
-        #下面的函数不管参数是什么，任务栏图标都和窗口图标一致，但如果没有下面的函数，任务栏图标就不显示
-        #ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID()
-        #获取当前日期,注意‘月’是大写M
-        self.curDate = self.calendarWidget.selectedDate().toString("yyyy年MM月")
-        #信号槽连接
-        self.btn_select.clicked.connect(self.on_linePathShow)
-        self.btn_select.clicked.connect(self.on_filesList)
-        self.btn_generate.clicked.connect(self.on_generateReports)
+class GenerateReportThread(QThread):
+    """生成周报线程，继承自QThread"""
+    finished_signal = pyqtSignal()
+    def __init__(self, directory,path, personReportPathList, curDate):
+        super(GenerateReportThread, self).__init__()
+        self.directory = directory
+        self.summaryReportPath = path
+        self.personReportPathList = personReportPathList
+        self.curDate = curDate
+    def __del__(self):
+        self.quit()
+        print("calling __del__")
+        self.wait()
+
+    def run(self):
+        self.on_generateReports()
+        self.finished_signal.emit()
+        print("GenerateReportThread线程退出")
     '''
-    slot function, connect to the btn_select clicked signal.
-    '''
-    def on_linePathShow(self):
-        self.directory = QFileDialog.getExistingDirectory(self, "选取文件夹", "./")
-        self.line_path.setText(self.directory)
-        print(self.directory)
-    '''
-    slot function, connect to the btn_select clicked signal.
-    Description: get the summary report path, and put everyone report path into a list.
-    '''
-    def on_filesList(self):
-        self.filesList = os.listdir(self.directory)
-        self.listWidget_filelist.clear()
-        self.personReportPathList = []
-        for report in self.filesList:
-            if report[0] == '.':
-                continue
-            elif report.rfind('_') == -1 :
-                self.summaryReportPath = report
-                print(self.summaryReportPath)
-            else:
-                self.personReportPathList.append(report)
-        self.listWidget_filelist.addItems(self.personReportPathList)
-    '''
-    slot function, connect to the btn_generate clicked signal.  
+    personReportPathList需要传入
     '''
     def on_generateReports(self):
-       summaryWorkPath = self.directory + '/' + self.summaryReportPath
-       print(summaryWorkPath)
-       #self.summaryReportWork = openpyxl.load_workbook(summaryWorkPath)
-       self.memberName = []
-       for reportWork in self.personReportPathList:
-           memberName = self.getStrBetweenSymbol(reportWork, '_', '.')
-           self.memberName.append(memberName)
+        summaryWorkPath = self.directory + '/' + self.summaryReportPath
+        print(summaryWorkPath)
+        #self.summaryReportWork = openpyxl.load_workbook(summaryWorkPath)
+        self.memberName = []
+        for reportWork in self.personReportPathList:
+            memberName = self.getStrBetweenSymbol(reportWork, '_', '.')
+            self.memberName.append(memberName)
        #按拼音排序
-       self.memberName.sort(key=lambda keys:[pinyin(i, style=Style.TONE3) for i in keys])
+        self.memberName.sort(key=lambda keys:[pinyin(i, style=Style.TONE3) for i in keys])
        #删除sheet页
 
        #按人名顺序添加sheet页
-       for one in self.memberName:
+        for one in self.memberName:
            for reportWork in self.personReportPathList:
                if reportWork.find(one) == -1:
                    continue
                curReportPath = self.directory + '/' + reportWork
                one = self.getStrBetweenSymbol(reportWork, '_', '.')
-               self.listWidget_info.addItem(one)
+               #self.listWidget_info.addItem(one)
                self.personReportPathList.remove(reportWork)
                self.del_sheet_by_name(summaryWorkPath, one)
                self.replace_xls(curReportPath, summaryWorkPath, one)
-               break
-       self.listWidget_info.addItem("周报生成完成")
-
+               #break
+        #self.listWidget_info.addItem("周报生成完成")
+        #生成完成的信号
+    '''
+    self.personReportWork
+    '''
     def del_sheet_by_name(self, tag_file, sheet_name):
         if os.path.exists(tag_file):
             wb = openpyxl.load_workbook(tag_file)
@@ -134,8 +117,11 @@ class AgentUI(QMainWindow, WeeklyReports.Ui_MainWindow):
         self.handleSingleCell(wsSrc, wsTag)
         #处理合并单元格
         self.handleMergedCells(wsSrc, wsTag)
-        wsTag.freeze_panes = 'G4'
+        #冻结单元格
+        wsTag.freeze_panes = 'I4'
         wbTag.save(filename=tag_file)
+        wbSrc.close()
+        wbTag.close()
 
     '''
     处理合并单元格
@@ -149,13 +135,13 @@ class AgentUI(QMainWindow, WeeklyReports.Ui_MainWindow):
         # wsTag.page_setup.fitToHeight = 3
         # wsTag.page_setup.fitToWidth = 0
         #单元格样式
-        thin = Side(color="000000", border_style="thin")
+        #thin = Side(color="000000", border_style="thin")
         medium = Side(color="000000", border_style="medium")
-        thick = Side(color="000000", border_style="thick")
+        #thick = Side(color="000000", border_style="thick")
         if len(mergedCellsList) > 0:
             for i in range(0, maxLen):
                 #print("mergedCellsList length: %d" % len(mergedCellsList))
-                mergeCells = mergedCellsList[0]
+                #mergeCells = mergedCellsList[0]
                 tagCell = str(mergedCellsList[0])
                 cellNum = tagCell.split(":")
                 wsSrc.unmerge_cells(tagCell)
@@ -232,6 +218,63 @@ class AgentUI(QMainWindow, WeeklyReports.Ui_MainWindow):
                         focus_cell.fill = PatternFill("solid", fgColor="92D050")  # 绿色
                         #focus_cell.border = Border(top=thin, left=thin, right=thin, bottom=thin)
 
+class AgentUI(QMainWindow, WeeklyReports.Ui_MainWindow):
+    def __init__(self):
+        super(AgentUI, self).__init__()
+        #全局有效的类变量在__init__中声明
+        self.curDate : str
+        self.initUI()
+    def initUI(self):
+        self.setupUi(self)  # 向主窗口添加控件
+        #设置窗口图标
+        icon = QIcon()
+        icon.addPixmap(QPixmap('周报面.png'))
+        self.setWindowIcon(icon)
+        #下面的函数不管参数是什么，任务栏图标都和窗口图标一致，但如果没有下面的函数，任务栏图标就不显示
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID()
+        #获取当前日期,注意‘月’是大写M
+        self.curDate = self.calendarWidget.selectedDate().toString("yyyy年MM月")
+        #信号槽连接
+        self.btn_select.clicked.connect(self.on_linePathShow)
+        self.btn_select.clicked.connect(self.on_filesList)
+        #self.btn_generate.clicked.connect(self.on_generateReports)
+        self.btn_generate.clicked.connect(self.generateReportThread)
+
+    '''
+    slot function, connect to the btn_select clicked signal.
+    '''
+    def on_linePathShow(self):
+        self.directory = QFileDialog.getExistingDirectory(self, "选取文件夹", "./")
+        self.line_path.setText(self.directory)
+        print(self.directory)
+    '''
+    slot function, connect to the btn_select clicked signal.
+    Description: get the summary report path, and put everyone report path into a list.
+    '''
+    def on_filesList(self):
+        self.filesList = os.listdir(self.directory)
+        self.listWidget_filelist.clear()
+        self.personReportPathList = []
+        for report in self.filesList:
+            if report[0] == '.':
+                continue
+            elif report.find('_') == -1 :
+                self.summaryReportPath = report
+                print(self.summaryReportPath)
+            else:
+                self.personReportPathList.append(report)
+        self.listWidget_filelist.addItems(self.personReportPathList)
+
+    '''
+    slot function, connect to the btn_generate clicked signal.  
+    '''
+    def generateReportThread(self):
+        self.gRthread = GenerateReportThread(self.directory, self.summaryReportPath, self.personReportPathList, self.curDate)
+        self.gRthread.finished_signal.connect(lambda:self.slot_showList("周报生成完成"))
+        self.gRthread.start()
+
+    def slot_showList(self, data):
+        self.listWidget_info.addItem(data)
 
 if __name__ == '__main__':
    app = QApplication(sys.argv)
